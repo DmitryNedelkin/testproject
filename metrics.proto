@@ -1,13 +1,15 @@
 syntax = "proto3";
 
-package getmessages;
+package main;
 
-service Reverse {
+option go_package = "./metrics";
+
+service Metrics {
   rpc Do(Request) returns (Response) {}
 }
 
 message Request {
-  string message = 1;
+  string index = 1;
 }
 
 message Response {
