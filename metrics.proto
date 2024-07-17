@@ -6,6 +6,7 @@ option go_package = "./metrics";
 
 service Metrics {
   rpc Do(Request) returns (Response) {}
+  rpc DoStreamResponse(Request) returns (stream Response) {}
 }
 
 message Request {

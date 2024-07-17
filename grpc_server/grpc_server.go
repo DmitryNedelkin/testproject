@@ -7,6 +7,9 @@ import (
 	"net"
 	"testproject/database"
 	pb "testproject/metrics"
+	"time"
+
+	"strconv"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -16,9 +19,14 @@ type server struct {
 	pb.UnimplementedMetricsServer
 }
 
-func (s *server) ListMetrics(ctx context.Context, in *pb.Request) (*pb.Response, error) {
+func (s *server) Do(ctx context.Context, in *pb.Request) (*pb.Response, error) {
 	log.Printf("Received: %v", in.GetIndex())
-	response := database.GetMessageFromDatabase(in.GetIndex())
+	i, err := strconv.Atoi(in.GetIndex())
+	if err != nil {
+		panic(err)
+	}
+
+	response := database.GetMessageFromDatabase(i)
 	if response != nil {
 		jsonString, err := json.Marshal(&response)
 		if err != nil {
@@ -29,6 +37,27 @@ func (s *server) ListMetrics(ctx context.Context, in *pb.Request) (*pb.Response,
 	} else {
 		return &pb.Response{Message: "Error"}, nil
 	}
+}
+
+func (s *server) DoStreamResponse(in *pb.Request, stream pb.Metrics_DoStreamResponseServer) error {
+	log.Println("0")
+	allMessages := database.GetAllMessages()
+	log.Println("allMessages")
+	for message := range allMessages {
+		jsonString, err := json.Marshal(&message)
+		if err != nil {
+			log.Fatal("Error marshaling to JSON: ", err)
+		}
+		log.Println("1")
+		if err := stream.Send(&pb.Response{Message: string(jsonString)}); err != nil {
+			return err
+		}
+		log.Println("2")
+		time.Sleep(1 * time.Second)
+		log.Println("3")
+	}
+
+	return nil
 }
 
 func StartGrpsServer() {

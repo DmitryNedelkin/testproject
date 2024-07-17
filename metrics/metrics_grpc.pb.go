@@ -19,7 +19,8 @@ import (
 const _ = grpc.SupportPackageIsVersion8
 
 const (
-	Metrics_Do_FullMethodName = "/main.Metrics/Do"
+	Metrics_Do_FullMethodName               = "/main.Metrics/Do"
+	Metrics_DoStreamResponse_FullMethodName = "/main.Metrics/DoStreamResponse"
 )
 
 // MetricsClient is the client API for Metrics service.
@@ -27,6 +28,7 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type MetricsClient interface {
 	Do(ctx context.Context, in *Request, opts ...grpc.CallOption) (*Response, error)
+	DoStreamResponse(ctx context.Context, in *Request, opts ...grpc.CallOption) (Metrics_DoStreamResponseClient, error)
 }
 
 type metricsClient struct {
@@ -47,11 +49,45 @@ func (c *metricsClient) Do(ctx context.Context, in *Request, opts ...grpc.CallOp
 	return out, nil
 }
 
+func (c *metricsClient) DoStreamResponse(ctx context.Context, in *Request, opts ...grpc.CallOption) (Metrics_DoStreamResponseClient, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &Metrics_ServiceDesc.Streams[0], Metrics_DoStreamResponse_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &metricsDoStreamResponseClient{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Metrics_DoStreamResponseClient interface {
+	Recv() (*Response, error)
+	grpc.ClientStream
+}
+
+type metricsDoStreamResponseClient struct {
+	grpc.ClientStream
+}
+
+func (x *metricsDoStreamResponseClient) Recv() (*Response, error) {
+	m := new(Response)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // MetricsServer is the server API for Metrics service.
 // All implementations must embed UnimplementedMetricsServer
 // for forward compatibility
 type MetricsServer interface {
 	Do(context.Context, *Request) (*Response, error)
+	DoStreamResponse(*Request, Metrics_DoStreamResponseServer) error
 	mustEmbedUnimplementedMetricsServer()
 }
 
@@ -61,6 +97,9 @@ type UnimplementedMetricsServer struct {
 
 func (UnimplementedMetricsServer) Do(context.Context, *Request) (*Response, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Do not implemented")
+}
+func (UnimplementedMetricsServer) DoStreamResponse(*Request, Metrics_DoStreamResponseServer) error {
+	return status.Errorf(codes.Unimplemented, "method DoStreamResponse not implemented")
 }
 func (UnimplementedMetricsServer) mustEmbedUnimplementedMetricsServer() {}
 
@@ -93,6 +132,27 @@ func _Metrics_Do_Handler(srv interface{}, ctx context.Context, dec func(interfac
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Metrics_DoStreamResponse_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(Request)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(MetricsServer).DoStreamResponse(m, &metricsDoStreamResponseServer{ServerStream: stream})
+}
+
+type Metrics_DoStreamResponseServer interface {
+	Send(*Response) error
+	grpc.ServerStream
+}
+
+type metricsDoStreamResponseServer struct {
+	grpc.ServerStream
+}
+
+func (x *metricsDoStreamResponseServer) Send(m *Response) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 // Metrics_ServiceDesc is the grpc.ServiceDesc for Metrics service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -105,6 +165,12 @@ var Metrics_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Metrics_Do_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "DoStreamResponse",
+			Handler:       _Metrics_DoStreamResponse_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "metrics.proto",
 }
